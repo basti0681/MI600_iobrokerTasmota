@@ -12,46 +12,41 @@ import platform
 ################################
 # MQTT CONFIG
 ################################
-mqtt_ip = 'localhost'
+mqtt_ip = '192.168.xx.xx'
 mqtt_port = 1883
-topic = "/MI600_mqtt/data"
-client_id = "MI600_mqtt"
-mqtt_username = 'USERNAME'
-mqtt_password = 'PASSWORD'
+client_id = "DVES_MI600"
+mqtt_username = 'xx'
+mqtt_password = 'xx'
 
 
 ################################
 # MI600 Login
 ################################
-htaccess_user = 'admin'
-htaccess_pw = '12345678'
-bosswerkIP = '192.168.x.x'
+htaccess_user = 'xx'
+htaccess_pw = 'xx'
+bosswerkIP = '192.168.xx.xx'
 ping_try_count = 10     #multiplied with 3 seconds sleep between each loop => 10*3 = 30 seconds try to connect the inverter then kill the script
-webinterface_url = 'http://192.168.x.x/status.html'
+webinterface_url = 'http://192.168.xx.xx/status.html'
 
 
 
 
 def connectMQTT(ip, port):
- #https://github.com/fr00sch/bosswerk_mi600_solar
- #https://pypi.org/project/paho-mqtt/
- client = mqtt.Client()
+ client = mqtt.Client(client_id)
  client.username_pw_set(mqtt_username, mqtt_password)
  client.on_connect = on_connect
  client.on_message = on_message
- #with mqtt.Client(client_id="0", clean_session=True, userdata=None, protocol="MQTTv311", transport="tcp") as client:
  client.connect(ip , port, 60)
  return client
 
 def sendData(client, webdata_now_p, webdata_today_e, webdata_total_e):
-    #https://github.com/fr00sch/bosswerk_mi600_solar
-    startmsg = json.dumps({"device": {"status": {"clientname":'MI600', "status":'Online', "power":webdata_now_p, "today":webdata_today_e, "total":webdata_total_e, "lastDateUpdate":datetime.today().strftime('%Y-%m-%d %H:%M:%S')}}}, skipkeys = True, allow_nan = False);
-    client.publish(topic, startmsg, qos=0, retain=False)
+    client.publish("tasmota_MI600/BM280/Power",webdata_now_p)
+    client.publish("tasmota_MI600/BM280/Today",webdata_today_e)
+    client.publish("tasmota_MI600/BM280/Total",webdata_total_e)
     client.disconnect()
 
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
-    #https://github.com/fr00sch/bosswerk_mi600_solar
     print("Connected with result code "+str(rc))
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
@@ -59,7 +54,6 @@ def on_connect(client, userdata, flags, rc):
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    #https://github.com/fr00sch/bosswerk_mi600_solar
     print(msg.topic+":"+str(msg.payload))  
 
 
@@ -112,19 +106,20 @@ def get_Solar_values():
                 #print(find_target_value("var webdata_now_p =", hp_source))
                 if not (re.search('---',ret0) == True):
                     power = ret0
-                    #print(ret0)
+                    print('Power: '+ret0+'W')
                 ret1 = find_target_value("var webdata_today_e =", hp_source)
                 #print(find_target_value("var webdata_today_e =", hp_source))
                 if not (re.search('---',ret1) == True):
                     today = ret1
-                    #print(ret1)
+                    print('Energy: '+ret1+'kWh')
                 ret2 = find_target_value("var webdata_total_e =", hp_source)
                 #print(find_target_value("var webdata_total_e =", hp_source))
                 if not (re.search('---',ret2) == True):
                     total = ret2
-                    #print(ret2)
-                client = connectMQTT(mqtt_ip, mqtt_port)
-                sendData(client, power, today, total)
+                    print('Total: '+ret2+'kWh')
+                if ret1 is not None:
+                    client = connectMQTT(mqtt_ip, mqtt_port)
+                    sendData(client, power, today, total)
             
         else:
             print(r.status_code)
