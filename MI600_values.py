@@ -12,21 +12,21 @@ import platform
 ################################
 # MQTT CONFIG
 ################################
-mqtt_ip = '192.168.xx.xx'
+mqtt_ip = '192.168.44.x'
 mqtt_port = 1883
 client_id = "DVES_MI600"
-mqtt_username = 'xx'
-mqtt_password = 'xx'
+mqtt_username = 'xxx'
+mqtt_password = 'xxxx'
 
 
 ################################
 # MI600 Login
 ################################
-htaccess_user = 'xx'
-htaccess_pw = 'xx'
-bosswerkIP = '192.168.xx.xx'
+htaccess_user = 'xxx'
+htaccess_pw = 'xxx'
+bosswerkIP = '192.168.44.xxx'
 ping_try_count = 10     #multiplied with 3 seconds sleep between each loop => 10*3 = 30 seconds try to connect the inverter then kill the script
-webinterface_url = 'http://192.168.xx.xx/status.html'
+webinterface_url = 'http://192.168.44.xxx/status.html'
 
 
 
@@ -56,21 +56,6 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     print(msg.topic+":"+str(msg.payload))  
 
-
-
-def ping_ip(current_ip_address):
-        #source: https://dmitrygolovach.com/python-ping-ip-address/
-        try:
-            output = subprocess.check_output("ping -{} 1 {}".format('n' if platform.system().lower(
-            ) == "windows" else 'c', current_ip_address ), shell=True, universal_newlines=True)
-            if 'unreachable' in output:
-                return False
-            else:
-                return True
-        except Exception:
-                return False
-
-
 def find_target_value(target, hp_source):
   find_target = hp_source.find(target)
   #print("target: {}" .format(find_target))
@@ -91,6 +76,7 @@ def get_Solar_values():
         r = requests.get(webinterface_url, verify=False, auth=(htaccess_user, htaccess_pw), timeout=2)
     except Timeout:
         print('I waited far too long')
+        return False
     else:
         print('The request got executed')
         if r.status_code == 200:
@@ -127,7 +113,7 @@ def get_Solar_values():
         #close connection
         r.close()
         print("Connection Closed")
-
+        return True
 
 
 
@@ -135,15 +121,16 @@ if __name__=='__main__':
     getDataCountPing = 0
     while getDataCountPing < ping_try_count:
         #print(getDataCountPing)
-        if ping_ip(bosswerkIP) == True:
-            get_Solar_values()
+        if get_Solar_values():
             break
         else:
           getDataCountPing = getDataCountPing + 1
           time.sleep(3)
           if getDataCountPing == ping_try_count:
-            startmsg = json.dumps({"device": {"status": {"clientname":'MI600', "status":"Offline", "power":0.0, "lastDateUpdate":datetime.today().strftime('%Y-%m-%d %H:%M:%S')}}}, skipkeys = True, allow_nan = False);
+            print('Could not reached')
             client = connectMQTT(mqtt_ip, mqtt_port)
-            client.publish(topic, startmsg, qos=0, retain=False)
+            client.publish("tasmota_MI600/BM280/Power", 0.0)
+            client.publish("tasmota_MI600/BM280/status", False, retain=False)
             client.disconnect()
           
+
